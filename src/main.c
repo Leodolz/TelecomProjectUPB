@@ -39,8 +39,6 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "stm32f0xx_hal.h"
-#include <string.h>
-#include "stdbool.h"
 
 /* USER CODE BEGIN Includes */
 
@@ -48,36 +46,27 @@
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc;
-DMA_HandleTypeDef hdma_adc;
-
-TIM_HandleTypeDef htim3;
 
 UART_HandleTypeDef huart1;
-UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE END PV */
 
-void SystemClock_Config(void);
 /* Private function prototypes -----------------------------------------------*/
+void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_DMA_Init(void);
-static void MX_USART2_UART_Init(void);
 static void MX_ADC_Init(void);
 static void MX_USART1_UART_Init(void);
-static void MX_TIM3_Init(void);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
 
 /* USER CODE END PFP */
 
-uint32_t adcValue;
-volatile bool Flag;
 /* USER CODE BEGIN 0 */
-
+uint32_t rawValue;
 /* USER CODE END 0 */
 
 /**
@@ -88,8 +77,7 @@ volatile bool Flag;
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-	float volt;
-	char msg[20];
+
   /* USER CODE END 1 */
 
   /* MCU Configuration----------------------------------------------------------*/
@@ -110,32 +98,23 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_DMA_Init();
-  MX_USART2_UART_Init();
   MX_ADC_Init();
   MX_USART1_UART_Init();
-  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
-  HAL_TIM_Base_Start(&htim3);
+  HAL_ADC_Start_IT(&hadc);
   /* USER CODE END 2 */
-  HAL_ADC_Start_DMA(&hadc,adcValue,1);
-  //HAL_ADC_Start(&hadc);
+
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
 
   /* USER CODE END WHILE */
-	  volt = ((float)adcValue) / 4095 * 3300;
-	  sprintf(msg, "adcValue: %hu\r\n", adcValue);
-	  HAL_UART_Transmit(&huart1, (uint8_t*) msg, strlen(msg), HAL_MAX_DELAY);
-
-	  sprintf(msg, "Voltage Value: %f mV\r\n", volt);
-	  HAL_UART_Transmit(&huart1, (uint8_t*) msg, strlen(msg), HAL_MAX_DELAY);
-
-	  }
+	  HAL_Delay(200);
+	  HAL_ADC_Start_IT(&hadc);
   /* USER CODE BEGIN 3 */
 
+  }
   /* USER CODE END 3 */
 
 }
@@ -217,9 +196,9 @@ static void MX_ADC_Init(void)
   hadc.Init.LowPowerAutoPowerOff = DISABLE;
   hadc.Init.ContinuousConvMode = DISABLE;
   hadc.Init.DiscontinuousConvMode = DISABLE;
-  hadc.Init.ExternalTrigConv = ADC_EXTERNALTRIGCONV_T3_TRGO;
-  hadc.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
-  hadc.Init.DMAContinuousRequests = ENABLE;
+  hadc.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc.Init.DMAContinuousRequests = DISABLE;
   hadc.Init.Overrun = ADC_OVR_DATA_PRESERVED;
   if (HAL_ADC_Init(&hadc) != HAL_OK)
   {
@@ -230,49 +209,8 @@ static void MX_ADC_Init(void)
     */
   sConfig.Channel = ADC_CHANNEL_0;
   sConfig.Rank = ADC_RANK_CHANNEL_NUMBER;
-  sConfig.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
+  sConfig.SamplingTime = ADC_SAMPLETIME_13CYCLES_5;
   if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
-  {
-    _Error_Handler(__FILE__, __LINE__);
-  }
-
-    /**Configure for the selected ADC regular channel to be converted. 
-    */
-  sConfig.Channel = ADC_CHANNEL_1;
-  if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
-  {
-    _Error_Handler(__FILE__, __LINE__);
-  }
-
-}
-
-/* TIM3 init function */
-static void MX_TIM3_Init(void)
-{
-
-  TIM_ClockConfigTypeDef sClockSourceConfig;
-  TIM_MasterConfigTypeDef sMasterConfig;
-
-  htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 4800;
-  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 1000;
-  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
-  {
-    _Error_Handler(__FILE__, __LINE__);
-  }
-
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
-  {
-    _Error_Handler(__FILE__, __LINE__);
-  }
-
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
   }
@@ -300,48 +238,14 @@ static void MX_USART1_UART_Init(void)
 
 }
 
-/* USART2 init function */
-static void MX_USART2_UART_Init(void)
-{
-
-  huart2.Instance = USART2;
-  huart2.Init.BaudRate = 38400;
-  huart2.Init.WordLength = UART_WORDLENGTH_8B;
-  huart2.Init.StopBits = UART_STOPBITS_1;
-  huart2.Init.Parity = UART_PARITY_NONE;
-  huart2.Init.Mode = UART_MODE_TX_RX;
-  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
-  huart2.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
-  huart2.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
-  if (HAL_UART_Init(&huart2) != HAL_OK)
-  {
-    _Error_Handler(__FILE__, __LINE__);
-  }
-
-}
-
-/** 
-  * Enable DMA controller clock
-  */
-static void MX_DMA_Init(void) 
-{
-  /* DMA controller clock enable */
-  __HAL_RCC_DMA1_CLK_ENABLE();
-
-  /* DMA interrupt init */
-  /* DMA1_Channel1_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
-
-}
-
 /** Configure pins as 
         * Analog 
         * Input 
         * Output
         * EVENT_OUT
         * EXTI
+     PA2   ------> USART2_TX
+     PA3   ------> USART2_RX
 */
 static void MX_GPIO_Init(void)
 {
@@ -362,6 +266,14 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
+  /*Configure GPIO pins : USART_TX_Pin USART_RX_Pin */
+  GPIO_InitStruct.Pin = USART_TX_Pin|USART_RX_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Alternate = GPIO_AF1_USART2;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
   /*Configure GPIO pin : LD2_Pin */
   GPIO_InitStruct.Pin = LD2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -369,22 +281,18 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
 
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI4_15_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI4_15_IRQn);
+
 }
 
 /* USER CODE BEGIN 4 */
-
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
-  /* Prevent unused argument(s) compilation warning */
-  //UNUSED(hadc);
-
-	adcValue = HAL_ADC_GetValue(&hadc);
-  /* NOTE : This function should not be modified. When the callback is needed,
-            function HAL_ADC_ConvCpltCallback must be implemented in the user file.
-   */
-  HAL_GPIO_TogglePin(GPIOA,GPIO_PIN_5);
+  rawValue = HAL_ADC_GetValue(hadc);
+  HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
 }
-
 /* USER CODE END 4 */
 
 /**
