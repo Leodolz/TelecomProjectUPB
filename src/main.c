@@ -39,15 +39,44 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "stm32f0xx_hal.h"
+#include <string.h>
+#include "stdbool.h"
+#include "stdlib.h"
+#include <stdio.h>
+#include <math.h>
+//#include "MQ2Config.h"
 
 /* USER CODE BEGIN Includes */
+#define WELCOME_CLASS "\r\n==========================================\r\nWelcome Electronics&Telecom. Project Class\r\n==========================================\r\n"
+#define WELCOME_MSG "Nucleo-Board Management Console\r\n"
+#define MAIN_MENU   "Select the option you are interested in:\r\n 1. Toggle LD2 LED\r\n 2. Read USER BUTTON status\r\n 3. Clear screen and print this message\r\n"
+#define PROMPT "\r\n> "
+#define BIEN "Tu valor rawValue es:\r\n"
 
+#define RL_Value 10
+#define RO_CLEAN_AIR_FACTOR 9.83
+
+#define LPG 0
+#define SMOKE 1
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc;
-
+char readBuf[1];
+char mandar[]= WELCOME_MSG;
+char mandar2[]= BIEN;
+__IO ITStatus UartReady = SET;
+volatile bool status = 0;
+int8_t opt;
 UART_HandleTypeDef huart1;
+char valor[50];
+char var[40];
+float LPGCurve[3]={2.3, 0.2, -0.45};
+
+float SmokeCurve[3] ={2.3,0.53,-0.43};
+
+float Ro =10;
+
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
@@ -59,14 +88,28 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_ADC_Init(void);
 static void MX_USART1_UART_Init(void);
-
+float  GetPercentage(float rs_ro_ratio, float *pcurve);
+float GetGasPercentage(float rs_ro_ratio, int gas_id);
+float ReadSensor(float valor);
+float ResistanceCalculation(float raw_adc);
+float SensorCalibration(float adcv);
+float ReadMQ (float crudo,int cual, float di);
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
 
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
-uint32_t rawValue;
+void performCriticalTasks(void);
+void printWelcomeMessage(void);
+volatile uint32_t rawValue;
+volatile float volt;
+volatile float calibrado;
+volatile float calibra2;
+//char valor[20];
+//uint8_t processUserInput(int8_t opt);
+//int8_t readUserInput(void);
+
 /* USER CODE END 0 */
 
 /**
@@ -76,6 +119,7 @@ uint32_t rawValue;
   */
 int main(void)
 {
+
   /* USER CODE BEGIN 1 */
 
   /* USER CODE END 1 */
@@ -84,11 +128,11 @@ int main(void)
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
-
+  int contad=1;
   /* USER CODE BEGIN Init */
 
   /* USER CODE END Init */
-
+  float intermedio;
   /* Configure the system clock */
   SystemClock_Config();
 
@@ -101,19 +145,45 @@ int main(void)
   MX_ADC_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
+  HAL_NVIC_SetPriority(USART1_IRQn,0,0);
+  HAL_NVIC_EnableIRQ(USART1_IRQn);
   HAL_ADC_Start_IT(&hadc);
+ // printWelcomeMessage();
+  //calibrado = ReadMQ((float)rawValue,1,true,0);
   /* USER CODE END 2 */
+ // calibrado= 10.67;
+  HAL_Delay(3000);
+  HAL_ADC_Start_IT(&hadc);
+  intermedio= 4096-(float)rawValue;
+  calibrado = (10*(4096-rawValue)/rawValue)/9.83;
+  gcvt(calibrado,6,valor);
+  	  sprintf(var, "Valor de resistencia: %s\r\n",valor);
+  	  HAL_UART_Transmit_IT(&huart1, (uint8_t*)var, strlen(var));
+  HAL_Delay(3000);
+  HAL_ADC_Start_IT(&hadc);
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-
   /* USER CODE END WHILE */
-	  HAL_Delay(200);
+	  HAL_Delay(1000);
 	  HAL_ADC_Start_IT(&hadc);
-  /* USER CODE BEGIN 3 */
-
+	  if(contad==1)
+	  {
+	  volt = ReadMQ((float)rawValue,1,calibrado);
+	  gcvt((float)volt,20,valor);
+	  sprintf(var, "Gas flamable: %s ppm\r\n",&valor);
+	  contad=0;
+	  }
+	  else
+	  {
+		  volt = ReadMQ((float)rawValue,2,calibrado);
+		  gcvt((float)volt,20,valor);
+		  sprintf(var, "Humo: %s ppm\r\n",&valor);
+		  contad=1;
+	  }
+	  HAL_UART_Transmit_IT(&huart1, (uint8_t*)var, strlen(var));
   }
   /* USER CODE END 3 */
 
@@ -288,11 +358,141 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void performCriticalTasks(void){
+	HAL_Delay(2000);
+}
+
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
-  rawValue = HAL_ADC_GetValue(hadc);
+//	char msg[20];
+  //
+
+  rawValue = (HAL_ADC_GetValue(hadc));
+
+  //itoa((int)rawValue,valor,10);
+ // valor= "Tu Raw Value es  \r\n";
+  //printWelcomeMessage();
+  //HAL_UART_Transmit_IT(&huart1, (uint8_t*)WELCOME_MSG, strlen(mandar));
+  //sprintf(msg, "rawValue: %hu\r\n",(uint8_t*)rawValue);
+  //snprintf(valor,20,"%hu\n",(unsigned*)rawValue);
+  //HAL_UART_Transmit_IT(&huart1, (uint8_t*)mandar2,strlen(mandar2));
+
   HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
 }
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *UartHandle){
+	/* Set transmission flag: transfer complete*/
+	UartReady = SET;
+}
+
+
+
+void printWelcomeMessage(void){
+	char *strings[] = {PROMPT, WELCOME_MSG, MAIN_MENU, PROMPT};
+
+	for (uint8_t i = 0; i < 4; i++)
+	{
+		HAL_UART_Transmit_IT(&huart1, (uint8_t*)strings[i], strlen(strings[i]));
+
+		while (HAL_UART_GetState(&huart1) == HAL_UART_STATE_BUSY_TX || HAL_UART_GetState(&huart1) == HAL_UART_STATE_BUSY_TX_RX);
+	}
+}
+/*
+int8_t readUserInput(void){
+	int8_t retVal = -1;
+
+	if(UartReady == SET)
+	{
+		UartReady = RESET;
+		HAL_UART_Receive_IT(&huart1, (uint8_t*)readBuf, 1);
+		retVal = atoi(readBuf);
+	}
+	return retVal;
+}
+*/
+
+
+float ReadMQ (float crudo,int cual, float di)
+{
+		switch(cual)
+		{
+		case 1:
+			return (GetGasPercentage(ReadSensor(crudo)/di,LPG));
+		case 2:
+			return (GetGasPercentage(ReadSensor(crudo)/di,SMOKE));
+		default:
+			return crudo;
+
+		}
+}
+
+
+float SensorCalibration(float adcv)
+{                                   // This function assumes that sensor is in clean air.
+  //float val=0;
+
+  return (float)((10*(4096-adcv)/adcv)/9.83);                        //divided by RO_CLEAN_AIR_FACTOR yields the Ro
+                                                        //according to the chart in the datasheet
+}
+
+float ReadSensor(float raw)
+{                                 // take multiple readings and average it.
+    return ResistanceCalculation((raw));   // rs changes according to gas concentration.
+}
+
+float ResistanceCalculation(float raw_adc)
+{
+	return (10*(4096-raw_adc)/raw_adc);
+}
+
+float GetGasPercentage(float rs_ro_ratio, int gas_id)
+{
+	if (gas_id == LPG)
+	{
+		return GetPercentage(rs_ro_ratio,LPGCurve);
+	}
+	else if (gas_id == SMOKE)
+	{
+		return GetPercentage(rs_ro_ratio,SmokeCurve);
+	}
+	return 0;
+}
+
+float GetPercentage(float rs_ro_ratio, float *curve)
+{
+	//return rs_ro_ratio;
+	return ( pow(10,(((log10(rs_ro_ratio)+curve[1])/curve[2])+ curve[0])));
+}
+
+
+
+/*
+uint8_t processUserInput(int8_t opt){
+	  char msg[30];
+
+	  if(!(opt >=1 && opt <= 3))
+	    return 0;
+
+	  sprintf(msg, "%d", opt);
+	  HAL_UART_Transmit(&huart1, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
+
+	  switch(opt) {
+		  case 1:
+			HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+			break;
+		  case 2:
+			sprintf(msg, "\r\nUSER BUTTON status: %s",
+				HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) == GPIO_PIN_RESET ? "PRESSED" : "RELEASED");
+			HAL_UART_Transmit(&huart1, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
+			break;
+		  case 3:
+			return 2;
+	  };
+
+	  HAL_UART_Transmit(&huart1, (uint8_t*)PROMPT, strlen(PROMPT), HAL_MAX_DELAY);
+	  return 1;
+}
+*/
 /* USER CODE END 4 */
 
 /**
