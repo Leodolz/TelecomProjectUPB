@@ -75,14 +75,16 @@ def uplinkCallback(msg, client):
         calibrado = (10 * (4096 - rawValuee1) / rawValuee1) / 9.83
         calibra2 = (10 * (4096 - rawValuee2) / rawValuee2) / 26.333
     else:
-        valhumo = ReadMQ(rawValuee1,2,calibrado)
-        valprop = ReadMQ(rawValuee1,1,calibrado)
-        valco = ReadMQ(rawValuee2,3,calibra2)
-
+        valhumo = ReadMQ(rawValuee1, 2, calibrado)
+        valprop = ReadMQ(rawValuee1, 1, calibrado)
+        valco = ReadMQ(rawValuee2, 3, calibra2)
+    print("\r\nSmoke Readings: ")
     print(type(valhumo))
     print(valhumo)
+    print("\r\nPropane Gas Readings: ")
     print(type(valprop))
     print(valprop)
+    print("\r\nCO Readings")
     print(type(valco))
     print(valco)
     cond = cond + 1
