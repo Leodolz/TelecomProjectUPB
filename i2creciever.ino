@@ -1,3 +1,5 @@
+#include <SoftwareSerial.h>
+
 #include <Wire.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -7,7 +9,7 @@
 
 #define  SLAVE_ADDRESS         0x29  //slave address, any number from 0x01 to 0x7F
 
-#define  REG_MAP_SIZE            10
+#define  REG_MAP_SIZE            15
 
 //#define  MAX_SENT_BYTES        50
 
@@ -30,8 +32,9 @@ void setup()
 
      Wire.onRequest(requestEvent);
 
-//     Wire.onReceive(receiveEvent);
+     Wire.onReceive(receiveEvent);
       dht.begin();
+      Serial.begin(9600);
 }
 
  
@@ -39,6 +42,11 @@ void setup()
 void loop()
 
 {
+    humedad = dht.readHumidity();
+     temperatura = dht.readTemperature();
+     t= temperatura*10;
+     h= humedad*10;  
+     delay(29000); 
     //IDLE Waiting for interrupt on Request event by master
 }
 
@@ -47,38 +55,18 @@ void loop()
 void requestEvent()
 
 {
-     humedad = dht.readHumidity();
-     temperatura = dht.readTemperature();
-     t= temperatura*10;
-     h= humedad*10;   
+     memset(registerMap,0,sizeof(registerMap));
      sprintf(registerMap,"%d %d",t,h);
-     Wire.write(registerMap, REG_MAP_SIZE);  //Sends data to ARM master
+     Wire.write(registerMap, strlen(registerMap));  //Sends data to ARM master
+     Serial.print(registerMap);
 }
 
  
-/* Reserved for debugging
+// Reserved for debugging
 void receiveEvent(int bytesReceived)
 
 {
-      recibido = true;
-     for (int a = 0; a < bytesReceived; a++)
+     
+    Wire.read();
 
-     {
-
-          if ( a < MAX_SENT_BYTES)
-
-          {
-               receivedCommands[a] = Wire.read();
-          }
-
-          else
-
-          {
-
-               Wire.read();  // if we receive more data then allowed just throw it away
-
-          }
-
-     }
-
-} */
+} 
