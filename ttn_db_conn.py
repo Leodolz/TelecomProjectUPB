@@ -87,6 +87,12 @@ def uplinkCallback(msg, client):
     print("\r\nCO Readings")
     print(type(valco))
     print(valco)
+    print("\r\nHumidity Readings: ")
+    print(type(valhume))
+    print(valhume)
+    print("\r\nTemperature Readings: ")
+    print(type(valtemp))
+    print(valtemp)
     cond = cond + 1
 
 
