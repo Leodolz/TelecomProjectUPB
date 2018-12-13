@@ -53,47 +53,51 @@ def ReadMQ(crudo, cual, di):
 def uplinkCallback(msg, client):
 
     global receivedNodeUplinkMsg
-    global nodeMsg3
-    global nodeMsg4
+    global valtemp
+    global valhume
     global rawValuee1
     global rawValuee2
+    global cond
+    global valhumo
+    global valprop
+    global valco
+    global calibrado
+    global calibra2
     print("\r\nThis is the payload:")
     print(msg.payload_fields.rawValue1)
-    print(type(msg.payload_fields.rawValue1))
+    # print(type(msg.payload_fields.rawValue1))
     print(msg.payload_fields.rawValue2)
-    print(type(msg.payload_fields.rawValue2))
-    print(msg.payload_fields.rawValue3)
-    print(type(msg.payload_fields.rawValue3))
-    print(msg.payload_fields.rawValue4)
-    print(type(msg.payload_fields.rawValue4))
-    receivedNodeUplinkMsg = True
+    # print(type(msg.payload_fields.rawValue2))
     rawValuee1 = msg.payload_fields.rawValue1
     rawValuee2 = msg.payload_fields.rawValue2
-    nodeMsg3 = msg.payload_fields.rawValue3
-    nodeMsg4 = msg.payload_fields.rawValue4
+    print("Breakpoint1\n")
+    valtemp = msg.payload_fields.rawValue3 / 10
+    valhume = msg.payload_fields.rawValue4 / 10
     if cond == 1:
         calibrado = (10 * (4096 - rawValuee1) / rawValuee1) / 9.83
         calibra2 = (10 * (4096 - rawValuee2) / rawValuee2) / 26.333
+        cond = cond + 1
     else:
+        print("Estoy entrando aqui\n")
         valhumo = ReadMQ(rawValuee1, 2, calibrado)
         valprop = ReadMQ(rawValuee1, 1, calibrado)
         valco = ReadMQ(rawValuee2, 3, calibra2)
     print("\r\nSmoke Readings: ")
-    print(type(valhumo))
+    # print(type(valhumo))
     print(valhumo)
     print("\r\nPropane Gas Readings: ")
-    print(type(valprop))
+    # print(type(valprop))
     print(valprop)
     print("\r\nCO Readings")
-    print(type(valco))
+    # print(type(valco))
     print(valco)
     print("\r\nHumidity Readings: ")
-    print(type(valhume))
+    # print(type(valhume))
     print(valhume)
     print("\r\nTemperature Readings: ")
-    print(type(valtemp))
+    # print(type(valtemp))
     print(valtemp)
-    cond = cond + 1
+    receivedNodeUplinkMsg = True
 
 
 def main():
@@ -116,7 +120,7 @@ def main():
                         dest='appid',
                         help="TTN application id",
                         type=str,
-                        default='testapptelecomproject_868'
+                        default='wild-fire-detection'
                         )
 
     parser.add_argument("-k",
@@ -124,7 +128,7 @@ def main():
                         dest='accessKey',
                         help="TTN Application Access Key",
                         type=str,
-                        default='ttn-account-v2.2GeA7EbqY7SBG-14tG7ma5m4I17VoQTJ4UZS0ZP1-ZQ'
+                        default='ttn-account-v2.MTTCwfuCEjSH1R5GjGqYlQqaW6ifzVEwoTx7M37PHXI'
                         )
 
     args = parser.parse_args()
@@ -145,22 +149,23 @@ def main():
 
     # connect to database
     client = InfluxDBClient(host=dbAddress, port=8086)
-    client.switch_database('MySensors')
+    client.switch_database('WildFire')
 
     while True:
         try:
             if receivedNodeUplinkMsg:
                 json_body = [
                     {
-                        "measurement": "VarResistorData",
+                        "measurement": "WildFireSensors",
                         "tags": {
                             "Sensor": "varRes1",
                         },
                         "fields": {
-                            "rawValue1": rawValuee1,
-                            "rawValue2": rawValuee2,
-                            "rawValue3": nodeMsg3,
-                            "rawValue4": nodeMsg4
+                            "SmokeValue": valhumo,
+                            "PropaneValue": valprop,
+                            "CO Value": valco,
+                            "Temperature": valtemp,
+                            "Humidity": valhume
                         }
                     }]
 
